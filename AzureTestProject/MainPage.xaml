@@ -7,6 +7,11 @@
     <ScrollView>
         <VerticalStackLayout Padding="30,0" Spacing="25">
             <Entry x:Name="SasTokenEntry" Placeholder="Insert SasToken here" />
+            <Entry x:Name="UserIdOrBlobName" Placeholder="Insert User Id or Blob Name" />
+            <HorizontalStackLayout>
+                <Label Text="Find By User Id" VerticalOptions="Center" />
+                <Switch x:Name="FindByUserId" IsToggled="False" />
+            </HorizontalStackLayout>
             <HorizontalStackLayout>
                 <VerticalStackLayout>
                     <Image
@@ -20,8 +25,12 @@
                         Text="Download File and Save to Cache" />
                     <Button
                         x:Name="DeleteCache"
-                        Clicked="DeleteCachedImage"
+                        Clicked="DeleteAllCachedImages"
                         Text="Clear Cache" />
+                    <Button
+                        x:Name="ReloadCacheImage"
+                        Clicked="ReloadImageAsync"
+                        Text="Reload Cache Image" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
                     <Image

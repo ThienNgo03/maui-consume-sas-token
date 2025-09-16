@@ -11,8 +11,8 @@ namespace AzureTestProject
     {
 
         // Your SAS URI and userId (store securely in production)
-        private readonly string userId = "12346";
-        private readonly string downloadFileName = "downloaded_by_metadata.png";
+        //http://127.0.0.1:10000/devstoreaccount1/container1?sv=2024-05-04&se=2025-09-19T16%3A15%3A12Z&sr=c&sp=racwdxltfi&sig=igVCpZZykv%2Bj1aojiiQzMT3wXa0jBYPyJzgZ9bd0biY%3D
+        private readonly string downloadFileName = "example.png"; // Example userId to match metadata
 
         public MainPage()
         {
@@ -25,71 +25,6 @@ namespace AzureTestProject
                 {
                     FileImage.Source = ImageSource.FromFile(localFilePath);
                 });
-            }
-        }
-
-        private async Task<MemoryStream> DisplayImageFromBlobAsync(MemoryStream ms)
-        {
-            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
-            BlobClient? targetBlobClient = null;
-
-            await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
-            {
-                if (blobItem.Metadata.TryGetValue("userId", out var value) && value == userId)
-                {
-                    targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
-                    break;
-                }
-            }
-
-            if (targetBlobClient == null)
-                return ms;
-
-            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
-
-            // Load into memory stream
-            await download.Content.CopyToAsync(ms);
-            ms.Position = 0;
-
-            return ms;
-        }
-
-        private async Task<bool> DownloadImageFromBlobAsync(string localFilePath)
-        {
-            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
-            BlobClient? targetBlobClient = null;
-
-            await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
-            {
-                if (blobItem.Metadata.TryGetValue("userId", out var value) && value == userId)
-                {
-                    targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
-                    break;
-                }
-            }
-
-            if (targetBlobClient == null)
-                return false;
-
-            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
-
-            // Save to local file
-            using (var fileStream = File.Open(localFilePath, FileMode.Create, FileAccess.Write))
-            {
-                await download.Content.CopyToAsync(fileStream);
-            }
-
-            return true;
-        }
-
-        private void DeleteCachedImage(object? sender, EventArgs e)
-        {
-            var fileName = "downloaded_by_metadata.png";
-            var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
-
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
             }
         }
 
@@ -154,6 +89,127 @@ namespace AzureTestProject
             catch (Exception ex)
             {
                 await DisplayAlert("Download Error", ex.Message, "OK");
+            }
+        }
+        private async Task<MemoryStream> DisplayImageFromBlobAsync(MemoryStream ms)
+        {
+            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
+            BlobClient? targetBlobClient = null;
+            if (!FindByUserId.IsToggled)
+            {
+                targetBlobClient = containerClient.GetBlobClient(UserIdOrBlobName.Text);
+            }
+            else
+            {
+                await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
+                {
+                    if (blobItem.Metadata.TryGetValue("userId", out var value) && value == UserIdOrBlobName.Text)
+                    {
+                        targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
+                        break;
+                    }
+                }
+            }
+            if (targetBlobClient == null)
+                return ms;
+
+            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
+
+            // Load into memory stream
+            await download.Content.CopyToAsync(ms);
+            ms.Position = 0;
+
+            return ms;
+        }
+
+        private async Task<bool> DownloadImageFromBlobAsync(string localFilePath)
+        {
+            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
+            BlobClient? targetBlobClient = null;
+
+            if (!FindByUserId.IsToggled)
+            {
+                targetBlobClient = containerClient.GetBlobClient(UserIdOrBlobName.Text);
+            }
+            else
+            {
+                await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
+                {
+                    if (blobItem.Metadata.TryGetValue("userId", out var value) && value == UserIdOrBlobName.Text)
+                    {
+                        targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
+                        break;
+                    }
+                }
+            }
+
+            if (targetBlobClient == null)
+                return false;
+
+            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
+
+            // Save to local file
+            using (var fileStream = File.Open(localFilePath, FileMode.Create, FileAccess.Write))
+            {
+                await download.Content.CopyToAsync(fileStream);
+            }
+
+            return true;
+        }
+
+        private void DeleteCachedImage(object? sender, EventArgs e)
+        {
+            var fileName = UserIdOrBlobName.Text;
+            var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
+
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+
+        private void DeleteAllCachedImages(object? sender, EventArgs e)
+        {
+            var cacheDir = FileSystem.CacheDirectory;
+            var files = Directory.GetFiles(cacheDir);
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex)
+                {
+                    // Nếu cần, bạn có thể log lỗi hoặc hiển thị thông báo
+                    Console.WriteLine($"Không thể xóa file: {file}. Lỗi: {ex.Message}");
+                }
+            }
+        }
+
+        private async void ReloadImageAsync(object sender, EventArgs e)
+        {
+            try
+            {
+                var localFilePath = Path.Combine(FileSystem.CacheDirectory, downloadFileName);
+                if (File.Exists(localFilePath))
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        FileImage.Source = ImageSource.FromFile(localFilePath);
+                    });
+                }
+                else
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        FileImage.Source = null; // hoặc dùng ảnh mặc định nếu muốn
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Reload Error", ex.Message, "OK");
             }
         }
     }
