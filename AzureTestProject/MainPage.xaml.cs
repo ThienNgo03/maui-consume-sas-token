@@ -217,6 +217,7 @@ namespace AzureTestProject
 
         #endregion
 
+        #region [UsingUrl]
         private async void DisplayImageByUrlButton(object sender, EventArgs e)
         {
             try
@@ -259,5 +260,7 @@ namespace AzureTestProject
             return $"{containerUri}/{blobName}?{sasToken}";
 
         }
+        #endregion
+
     }
 }
