@@ -28,11 +28,11 @@ namespace AzureTestProject
             }
         }
 
-        private async void FileDownloadButton_Clicked(object sender, EventArgs e)
+        #region [UsingDisk]
+        private async void DownloadToDiskAndDisplayButton(object sender, EventArgs e)
         {
             try
             {
-                // khởi tạo đường dẫn lưu file tạm thời
                 var localFilePath = Path.Combine(FileSystem.CacheDirectory, downloadFileName);
 
                 if (File.Exists(localFilePath))
@@ -44,7 +44,7 @@ namespace AzureTestProject
                 }
                 else
                 {
-                    bool success = await DownloadImageFromBlobAsync(localFilePath);
+                    bool success = await DownloadImageFromBlobToDiskAsync(localFilePath);
 
                     if (success) // if này để dùng cho trường hợp muốn lưu file rồi hiển thị ảnh từ file đã lưu
                     {
@@ -65,64 +65,7 @@ namespace AzureTestProject
                 await DisplayAlert("Download Error", ex.Message, "OK");
             }
         }
-
-        private async void DownloadStreamImage_Clicked(object sender, EventArgs e)
-        {
-            try
-            {
-
-                // khởi tạo memory stream để hiển thị ảnh từ memory stream
-                var ms = new MemoryStream();
-                ms = await DisplayImageFromBlobAsync(ms);
-                if (ms.Length != 0) // if này để dùng cho trường hợp không muốn lưu file mà chỉ hiển thị ảnh từ memory stream
-                {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        StreamImage.Source = ImageSource.FromStream(() => ms);
-                    });
-                }
-                else
-                {
-                    await DisplayAlert("Error", "Could not find image with matching metadata.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Download Error", ex.Message, "OK");
-            }
-        }
-        private async Task<MemoryStream> DisplayImageFromBlobAsync(MemoryStream ms)
-        {
-            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
-            BlobClient? targetBlobClient = null;
-            if (!FindByUserId.IsToggled)
-            {
-                targetBlobClient = containerClient.GetBlobClient(UserIdOrBlobName.Text);
-            }
-            else
-            {
-                await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
-                {
-                    if (blobItem.Metadata.TryGetValue("userId", out var value) && value == UserIdOrBlobName.Text)
-                    {
-                        targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
-                        break;
-                    }
-                }
-            }
-            if (targetBlobClient == null)
-                return ms;
-
-            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
-
-            // Load into memory stream
-            await download.Content.CopyToAsync(ms);
-            ms.Position = 0;
-
-            return ms;
-        }
-
-        private async Task<bool> DownloadImageFromBlobAsync(string localFilePath)
+        private async Task<bool> DownloadImageFromBlobToDiskAsync(string localFilePath)
         {
             var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
             BlobClient? targetBlobClient = null;
@@ -187,7 +130,7 @@ namespace AzureTestProject
             }
         }
 
-        private async void ReloadImageAsync(object sender, EventArgs e)
+        private async void ReloadCacheImageAsync(object sender, EventArgs e)
         {
             try
             {
@@ -211,6 +154,110 @@ namespace AzureTestProject
             {
                 await DisplayAlert("Reload Error", ex.Message, "OK");
             }
+        }
+
+        #endregion
+
+        #region [UsingRAM]
+        private async void DownloadToRamAndDisplayButton(object sender, EventArgs e)
+        {
+            try
+            {
+
+                // khởi tạo memory stream để hiển thị ảnh từ memory stream
+                var ms = new MemoryStream();
+                bool success = await DownloadImageFromBlobToRamAsync(ms);
+                if (success)
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        StreamImage.Source = ImageSource.FromStream(() => ms);
+                    });
+                }
+                else
+                {
+                    await DisplayAlert("Error", "Could not find image with matching metadata.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Download Error", ex.Message, "OK");
+            }
+        }
+        private async Task<bool> DownloadImageFromBlobToRamAsync(MemoryStream ms)
+        {
+            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
+            BlobClient? targetBlobClient = null;
+            if (!FindByUserId.IsToggled)
+            {
+                targetBlobClient = containerClient.GetBlobClient(UserIdOrBlobName.Text);
+            }
+            else
+            {
+                await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
+                {
+                    if (blobItem.Metadata.TryGetValue("userId", out var value) && value == UserIdOrBlobName.Text)
+                    {
+                        targetBlobClient = containerClient.GetBlobClient(blobItem.Name);
+                        break;
+                    }
+                }
+            }
+            if (targetBlobClient == null)
+                return false;
+
+            BlobDownloadInfo download = await targetBlobClient.DownloadAsync();
+
+            // Load into memory stream
+            await download.Content.CopyToAsync(ms);
+            ms.Position = 0;
+
+            return true;
+        }
+
+        #endregion
+
+        private async void DisplayImageByUrlButton(object sender, EventArgs e)
+        {
+            try
+            {
+
+                // khởi tạo memory stream để hiển thị ảnh từ memory stream
+                string blobUrl = await CreateImageUrl();
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    UrlImage.Source = ImageSource.FromUri(new Uri(blobUrl));
+                });
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Download Error", ex.Message, "OK");
+            }
+        }
+
+        private async Task<string> CreateImageUrl()
+        {
+            string blobName = UserIdOrBlobName.Text;
+            var containerClient = new BlobContainerClient(new Uri(SasTokenEntry.Text));
+            if (FindByUserId.IsToggled)
+            {
+                await foreach (BlobItem blobItem in containerClient.GetBlobsAsync(BlobTraits.Metadata))
+                {
+                    if (blobItem.Metadata.TryGetValue("userId", out var value) && value == UserIdOrBlobName.Text)
+                    {
+                        blobName = blobItem.Name;
+                        break;
+                    }
+                }
+            }
+            // Tách phần token ra khỏi baseUri
+            var uriParts = SasTokenEntry.Text.Split('?');
+            string containerUri = uriParts[0];
+            string sasToken = uriParts.Length > 1 ? uriParts[1] : "";
+
+            // Tạo URL đầy đủ đến blob
+            return $"{containerUri}/{blobName}?{sasToken}";
+
         }
     }
 }

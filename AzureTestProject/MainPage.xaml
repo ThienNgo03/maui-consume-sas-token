@@ -21,7 +21,7 @@
                         WidthRequest="200" />
                     <Button
                         x:Name="FileDownloadButton"
-                        Clicked="FileDownloadButton_Clicked"
+                        Clicked="DownloadToDiskAndDisplayButton"
                         Text="Download File and Save to Cache" />
                     <Button
                         x:Name="DeleteCache"
@@ -29,7 +29,7 @@
                         Text="Clear Cache" />
                     <Button
                         x:Name="ReloadCacheImage"
-                        Clicked="ReloadImageAsync"
+                        Clicked="ReloadCacheImageAsync"
                         Text="Reload Cache Image" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
@@ -40,8 +40,19 @@
                         WidthRequest="200" />
                     <Button
                         x:Name="DownloadStreamImage"
-                        Clicked="DownloadStreamImage_Clicked"
+                        Clicked="DownloadToRamAndDisplayButton"
                         Text="Download Stream Image" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Image
+                        x:Name="UrlImage"
+                        Aspect="AspectFit"
+                        HeightRequest="185"
+                        WidthRequest="200" />
+                    <Button
+                        x:Name="UrlDisplayImage"
+                        Clicked="DisplayImageByUrlButton"
+                        Text="Display Image By Url" />
                 </VerticalStackLayout>
             </HorizontalStackLayout>
 
